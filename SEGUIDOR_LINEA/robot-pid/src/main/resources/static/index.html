@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Robot PID | Industria 4.0</title>
+
+<style>
+:root {
+  color-scheme: dark;
+  font-family: system-ui, Segoe UI, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #081421;
+  color: #e7f6ff;
+}
+
+main {
+  max-width: 1160px;
+  margin: auto;
+  padding: 24px;
+}
+
+h1 {
+  margin: 0 0 5px;
+  font-size: clamp(24px,4vw,36px);
+}
+
+.sub {
+  color: #9ab1c1;
+  margin: 0 0 24px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit,minmax(165px,1fr));
+  gap: 12px;
+}
+
+.card,.panel {
+  background: #102638;
+  border: 1px solid #264456;
+  border-radius: 15px;
+  padding: 18px;
+}
+
+.label {
+  font-size: 13px;
+  color: #a4b9c6;
+}
+
+.value {
+  font-size: 26px;
+  font-weight: 750;
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+}
+
+.good { color: #63f1a1; }
+.bad { color: #ff827c; }
+
+.panels {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 15px;
+  margin-top: 16px;
+}
+
+.panel h2 {
+  font-size: 19px;
+  margin: 0 0 15px;
+}
+
+.canvas {
+  width: 100%;
+  display: block;
+}
+
+#radar { aspect-ratio: 1.65; }
+#chart { aspect-ratio: 1.7; }
+
+.controls { margin-top: 16px; }
+
+.buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+button {
+  border: 0;
+  background: #2b607a;
+  color: white;
+  padding: 11px 16px;
+  border-radius: 9px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.2); }
+button.stop { background: #a83e42; }
+button.start { background: #177a55; }
+
+.form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+  align-items: end;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #b6cedb;
+  font-size: 13px;
+}
+
+.form input {
+  width: 90px;
+  padding: 10px;
+  background: #071925;
+  border: 1px solid #416075;
+  border-radius: 8px;
+  color: white;
+}
+
+.note {
+  font-size: 13px;
+  color: #9fb8c5;
+  line-height: 1.5;
+}
+
+#feedback {
+  min-height: 22px;
+  color: #f7d78a;
+}
+
+/* ======================================
+   SECCION DE BASE DE DATOS
+====================================== */
+
+.database {
+  margin-top: 16px;
+}
+
+.db-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.db-status {
+  font-size: 13px;
+  color: #9fb8c5;
+}
+
+.db-grid {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.db-stat {
+  background: #0b1d2c;
+  border: 1px solid #284657;
+  border-radius: 11px;
+  padding: 15px;
+}
+
+.db-stat strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 23px;
+  color: #6df4a1;
+}
+
+.db-chart {
+  width: 100%;
+  height: 245px;
+}
+
+.db-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+th,td {
+  text-align: left;
+  padding: 11px 12px;
+  border-bottom: 1px solid #284657;
+}
+
+th {
+  background: #173348;
+  color: #b9dce8;
+}
+
+tbody tr:hover {
+  background: #18374a;
+}
+
+.db-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.db-actions select {
+  padding: 10px;
+  background: #071925;
+  border: 1px solid #416075;
+  border-radius: 8px;
+  color: white;
+}
+
+.empty {
+  color: #9fb8c5;
+  text-align: center;
+  padding: 20px;
+}
+
+@media(max-width:760px) {
+  .panels { grid-template-columns: 1fr; }
+  .db-grid { grid-template-columns: 1fr; }
+  main { padding: 14px; }
+}
+</style>
+</head>
+
+<body>
+<main>
+
+<h1>Robot seguidor de línea PID</h1>
+
+<p class="sub">
+  Monitoreo en tiempo real · Radar ultrasónico ·
+  Base de datos MySQL · Industria 4.0
+</p>
+
+<!-- ======================================
+     TARJETAS EN TIEMPO REAL
+====================================== -->
+
+<section class="cards">
+
+  <div class="card">
+    <div class="label">Servidor</div>
+    <div class="value" id="servidor">
+      Comprobando
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Bluetooth</div>
+    <div class="value" id="bluetooth">
+      Esperando
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Error PID</div>
+    <div class="value" id="error">—</div>
+  </div>
+
+  <div class="card">
+    <div class="label">Distancia ultrasónica</div>
+    <div class="value" id="distancia">—</div>
+  </div>
+
+  <div class="card">
+    <div class="label">Ángulo del radar</div>
+    <div class="value" id="angulo">—</div>
+  </div>
+
+  <div class="card">
+    <div class="label">Estado del robot</div>
+    <div class="value" id="estado">
+      Esperando
+    </div>
+  </div>
+
+</section>
+
+<!-- ======================================
+     RADAR Y PID EN TIEMPO REAL
+====================================== -->
+
+<section class="panels">
+
+  <article class="panel">
+
+    <h2>Radar ultrasónico · 180°</h2>
+
+    <canvas id="radar" class="canvas"></canvas>
+
+    <p class="note">
+      Verde: barrido con estela luminosa breve.
+      Rojo: ecos detectados a 2–100 cm.
+      Las marcas desaparecen tras unos segundos.
+      Posiciones relativas al robot, no un mapa fijo.
+    </p>
+
+  </article>
+
+  <article class="panel">
+
+    <h2>Historial del error PID</h2>
+
+    <canvas id="chart" class="canvas"></canvas>
+
+    <p class="note">
+      Lecturas recientes del error de seguimiento
+      de línea en tiempo real.
+    </p>
+
+  </article>
+
+</section>
+
+<!-- ======================================
+     CONTROL REMOTO
+====================================== -->
+
+<section class="panel controls">
+
+  <h2>Control remoto</h2>
+
+  <div class="buttons">
+
+    <button class="start" onclick="enviar('START')">
+      ▶ START
+    </button>
+
+    <button class="stop" onclick="enviar('STOP')">
+      ■ STOP
+    </button>
+
+    <button onclick="enviar('RADAR ON')">
+      Radar ON
+    </button>
+
+    <button onclick="enviar('RADAR OFF')">
+      Radar OFF
+    </button>
+
+  </div>
+
+  <div class="form">
+
+    <label>
+      Kp
+      <input id="kp" type="number"
+             step="0.1" value="70">
+    </label>
+
+    <label>
+      Ki
+      <input id="ki" type="number"
+             step="0.01" value="0">
+    </label>
+
+    <label>
+      Kd
+      <input id="kd" type="number"
+             step="0.1" value="25">
+    </label>
+
+    <label>
+      Velocidad
+      <input id="vel" type="number"
+             min="0" max="255" value="100">
+    </label>
+
+    <button onclick="ajustar()">
+      Aplicar PID y velocidad
+    </button>
+
+  </div>
+
+  <p id="feedback"></p>
+
+  <p class="note">
+    Los botones envían comandos a través de
+    Spring Boot y COM10.
+    El radar no detiene el robot ni esquiva obstáculos.
+  </p>
+
+</section>
+
+<!-- ======================================
+     HISTORIAL MYSQL
+====================================== -->
+
+<section class="panel database">
+
+  <div class="db-header">
+
+    <div>
+      <h2>Base de datos · MySQL</h2>
+      <p class="note">
+        Historial de telemetría almacenado en
+        el servidor de VirtualBox.
+      </p>
+    </div>
+
+    <div class="db-actions">
+
+      <select id="limite"
+              onchange="actualizarHistorial()">
+        <option value="20">20 registros</option>
+        <option value="50" selected>50 registros</option>
+        <option value="100">100 registros</option>
+        <option value="200">200 registros</option>
+      </select>
+
+      <button onclick="actualizarHistorial()">
+        Actualizar
+      </button>
+
+      <button onclick="exportarCSV()">
+        Exportar CSV
+      </button>
+
+    </div>
+
+  </div>
+
+  <div class="db-status" id="dbEstado">
+    Consultando MySQL...
+  </div>
+
+  <div class="db-grid">
+
+    <div class="db-stat">
+      <div class="label">
+        Registros consultados
+      </div>
+      <strong id="dbTotal">0</strong>
+    </div>
+
+    <div class="db-stat">
+      <div class="label">
+        Último error PID
+      </div>
+      <strong id="dbError">—</strong>
+    </div>
+
+    <div class="db-stat">
+      <div class="label">
+        Última lectura
+      </div>
+      <strong id="dbFecha"
+              style="font-size:17px">
+        —
+      </strong>
+    </div>
+
+  </div>
+
+  <h2>Gráfica histórica del error PID</h2>
+
+  <canvas id="dbChart"
+          class="canvas db-chart"></canvas>
+
+  <p class="note">
+    Datos históricos recuperados de la tabla
+    telemetria de MySQL.
+  </p>
+
+  <h2>Últimas lecturas almacenadas</h2>
+
+  <div class="db-table-wrap">
+
+    <table>
+
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha y hora</th>
+          <th>Activo</th>
+          <th>Error PID</th>
+          <th>Radar</th>
+          <th>Distancia</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+
+      <tbody id="tablaHistorial">
+        <tr>
+          <td colspan="7" class="empty">
+            Cargando registros...
+          </td>
+        </tr>
+      </tbody>
+
+    </table>
+
+  </div>
+
+  <p class="note">
+    Actualización automática cada 3 segundos.
+    El contador muestra los registros consultados,
+    no el total de toda la base de datos.
+    La exportación CSV incluye los registros
+    actualmente cargados.
+  </p>
+
+</section>
+
+</main>
+
+<script>
+
+const $ = id => document.getElementById(id);
+
+const radar = $('radar');
+const ctx = radar.getContext('2d');
+
+const chart = $('chart');
+const cx = chart.getContext('2d');
+
+const dbChart = $('dbChart');
+const dx = dbChart.getContext('2d');
+
+let angulo = 90;
+let distancia = -1;
+let ultimaMuestra = '';
+
+let marcas = [];
+let historial = [];
+
+let activo = false;
+let conectado = false;
+
+let datosMySQL = [];
+
+// ==========================================
+// AJUSTAR CANVAS
+// ==========================================
+
+function resize(c) {
+
+  const r = c.getBoundingClientRect();
+  const d = window.devicePixelRatio || 1;
+
+  c.width = Math.round(r.width * d);
+  c.height = Math.round(r.height * d);
+
+  c.getContext('2d').setTransform(
+    d,0,0,d,0,0
+  );
+
+  return [r.width,r.height];
+}
+
+// ==========================================
+// EFECTO DE ESTELA VERDE
+// ==========================================
+
+const ESTELA_MS = 420;
+
+let estela = [];
+let anguloAnterior = null;
+
+// ==========================================
+// DIBUJAR RADAR
+// ==========================================
+
+function pintarRadar() {
+
+  const [w,h] = resize(radar);
+
+  ctx.clearRect(0,0,w,h);
+
+  const ox = w/2;
+  const oy = h-19;
+
+  const R = Math.min(w*.47,h-30);
+  const rad = Math.PI/180;
+
+  const now = performance.now();
+
+  const anguloSeguro = Number.isFinite(angulo)
+    ? Math.max(0,Math.min(180,angulo))
+    : 90;
+
+  if(conectado && anguloSeguro!==anguloAnterior) {
+
+    estela.push({
+      a:anguloSeguro,
+      t:now
+    });
+
+    anguloAnterior = anguloSeguro;
+  }
+
+  estela = estela.filter(
+    p => now-p.t<ESTELA_MS
+  );
+
+  // Sombreado verde que se desvanece.
+  for(const p of estela) {
+
+    const vida = Math.max(
+      0,1-(now-p.t)/ESTELA_MS
+    );
+
+    const t = (180-p.a)*rad;
+    const amplitud = 3.8*rad;
+
+    const t1 = Math.max(0,t-amplitud);
+    const t2 = Math.min(Math.PI,t+amplitud);
+
+    ctx.beginPath();
+    ctx.moveTo(ox,oy);
+    ctx.arc(ox,oy,R,t1,t2,false);
+    ctx.closePath();
+
+    ctx.fillStyle =
+      `rgba(30,255,125,${(0.13*vida*vida).toFixed(3)})`;
+
+    ctx.fill();
+  }
+
+  // Retícula del radar.
+  ctx.strokeStyle = '#28674c';
+  ctx.lineWidth = 1;
+
+  for(let i=1;i<=4;i++) {
+
+    ctx.beginPath();
+
+    ctx.arc(
+      ox,oy,R*i/4,Math.PI,2*Math.PI
+    );
+
+    ctx.stroke();
+  }
+
+  for(let a=0;a<=180;a+=30) {
+
+    const t = (180-a)*rad;
+
+    ctx.beginPath();
+    ctx.moveTo(ox,oy);
+
+    ctx.lineTo(
+      ox+R*Math.cos(t),
+      oy-R*Math.sin(t)
+    );
+
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = '#a1c7b8';
+  ctx.font = '12px system-ui';
+  ctx.textAlign = 'center';
+
+  ctx.fillText('180°',ox-R+12,oy+15);
+  ctx.fillText('90°',ox,oy-R-7);
+  ctx.fillText('0°',ox+R-12,oy+15);
+
+  // Aguja principal con aureola.
+  const t = (180-anguloSeguro)*rad;
+
+  ctx.save();
+
+  ctx.beginPath();
+  ctx.moveTo(ox,oy);
+
+  ctx.lineTo(
+    ox+R*Math.cos(t),
+    oy-R*Math.sin(t)
+  );
+
+  ctx.strokeStyle = '#5bff9c';
+  ctx.lineWidth = 3;
+
+  ctx.shadowColor = '#41ff88';
+  ctx.shadowBlur = 14;
+
+  ctx.stroke();
+  ctx.restore();
+
+  // Detecciones ultrasónicas.
+  const fecha = Date.now();
+
+  marcas = marcas.filter(
+    p => fecha-p.t<4500
+  );
+
+  for(const p of marcas) {
+
+    const rr =
+      R*Math.min(p.d,100)/100;
+
+    const tt = (180-p.a)*rad;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      ox+rr*Math.cos(tt),
+      oy-rr*Math.sin(tt),
+      5,0,Math.PI*2
+    );
+
+    ctx.fillStyle =
+      `rgba(255,91,85,${
+        Math.max(0,1-(fecha-p.t)/4500)
+      })`;
+
+    ctx.fill();
+  }
+
+  ctx.beginPath();
+  ctx.arc(ox,oy,5,0,Math.PI*2);
+
+  ctx.fillStyle = '#c9ffdb';
+  ctx.fill();
+}
+
+// ==========================================
+// GRAFICA PID EN TIEMPO REAL
+// ==========================================
+
+function pintarGrafica() {
+
+  const [w,h] = resize(chart);
+
+  cx.clearRect(0,0,w,h);
+
+  const pad = 26;
+
+  cx.strokeStyle = '#2a4a5c';
+  cx.lineWidth = 1;
+
+  for(let y=0;y<5;y++) {
+
+    const yy =
+      pad+(h-2*pad)*y/4;
+
+    cx.beginPath();
+    cx.moveTo(pad,yy);
+    cx.lineTo(w-10,yy);
+    cx.stroke();
+  }
+
+  if(!historial.length) return;
+
+  cx.strokeStyle = '#6df4a1';
+  cx.lineWidth = 2.5;
+
+  cx.beginPath();
+
+  historial.forEach((v,i) => {
+
+    const x =
+      pad+i*(w-pad-12)/
+      Math.max(1,historial.length-1);
+
+    const y =
+      pad+(2-v)*(h-2*pad)/4;
+
+    if(i) cx.lineTo(x,y);
+    else cx.moveTo(x,y);
+  });
+
+  cx.stroke();
+
+  cx.fillStyle = '#a5c6d1';
+  cx.font = '12px system-ui';
+
+  cx.fillText('+2',3,pad+4);
+  cx.fillText('0',10,h/2);
+  cx.fillText('-2',3,h-pad+4);
+}
+
+// ==========================================
+// ESTADOS DEL ROBOT
+// ==========================================
+
+function estadoTexto(s,a) {
+
+  if(!a) return 'Detenido';
+
+  return ({
+    0:'Siguiendo línea',
+    16:'Buscando línea',
+    17:'Detenido'
+  })[s] || 'Estado '+s;
+}
+
+// ==========================================
+// CONSULTAR ESTADO EN TIEMPO REAL
+// ==========================================
+
+async function actualizar() {
+
+  try {
+
+    const r = await fetch(
+      '/api/estado',
+      {cache:'no-store'}
+    );
+
+    if(!r.ok) {
+      throw Error('HTTP '+r.status);
+    }
+
+    const d = await r.json();
+
+    $('servidor').textContent =
+      'Conectado';
+
+    $('servidor').className =
+      'value good';
+
+    conectado =
+      String(d.bluetooth||'')
+        .toLowerCase()
+        .includes('conectado') &&
+      !String(d.bluetooth||'')
+        .toLowerCase()
+        .includes('desconectado');
+
+    $('bluetooth').textContent =
+      d.bluetooth || 'Sin información';
+
+    $('bluetooth').className =
+      'value '+(conectado?'good':'bad');
+
+    activo =
+      d.activo===true || d.activo===1;
+
+    angulo =
+      Number(d.anguloRadar??90);
+
+    distancia =
+      Number(d.distancia??-1);
+
+    $('angulo').textContent =
+      angulo+'°';
+
+    $('distancia').textContent =
+      distancia>0
+        ? distancia+' cm'
+        : 'Sin eco';
+
+    $('error').textContent =
+      d.errorPID??'—';
+
+    $('estado').textContent =
+      estadoTexto(
+        Number(d.estado),
+        activo
+      );
+
+    const muestra = [
+      d.anguloRadar,
+      d.distancia,
+      d.errorPID,
+      d.estado
+    ].join('|');
+
+    if(conectado && muestra!==ultimaMuestra) {
+
+      ultimaMuestra = muestra;
+
+      if(distancia>=2 && distancia<=100) {
+
+        marcas.push({
+          a:angulo,
+          d:distancia,
+          t:Date.now()
+        });
+      }
+
+      historial.push(
+        Math.max(
+          -2,
+          Math.min(
+            2,Number(d.errorPID)||0
+          )
+        )
+      );
+
+      if(historial.length>80) {
+        historial.shift();
+      }
+    }
+
+  } catch(e) {
+
+    conectado = false;
+
+    $('servidor').textContent =
+      'Sin conexión';
+
+    $('servidor').className =
+      'value bad';
+
+    $('feedback').textContent =
+      'No se pudo consultar la API: '+
+      e.message;
+  }
+}
+
+// ==========================================
+// ENVIAR COMANDOS
+// ==========================================
+
+async function enviar(comando) {
+
+  try {
+
+    const r = await fetch(
+      '/api/comando',
+      {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({comando})
+      }
+    );
+
+    const d = await r.json();
+
+    $('feedback').textContent =
+      d.mensaje || ('HTTP '+r.status);
+
+  } catch(e) {
+
+    $('feedback').textContent =
+      'Error al enviar: '+e.message;
+  }
+}
+
+// ==========================================
+// AJUSTAR PID Y VELOCIDAD
+// ==========================================
+
+async function ajustar() {
+
+  for(const [clave,id] of [
+    ['KP','kp'],
+    ['KI','ki'],
+    ['KD','kd'],
+    ['VEL','vel']
+  ]) {
+
+    const n = Number($(id).value);
+
+    if(!Number.isFinite(n) ||
+       $(id).value==='') {
+
+      $('feedback').textContent =
+        'Revisa '+clave;
+
+      return;
+    }
+
+    await enviar(clave+'='+n);
+  }
+}
+
+// ==========================================
+// CONSULTAR HISTORIAL MYSQL
+// ==========================================
+
+async function actualizarHistorial() {
+
+  try {
+
+    const limite =
+      Number($('limite').value);
+
+    const r = await fetch(
+      '/api/historial?limite='+limite,
+      {cache:'no-store'}
+    );
+
+    if(!r.ok) {
+      throw Error('HTTP '+r.status);
+    }
+
+    const datos = await r.json();
+
+    if(!Array.isArray(datos)) {
+      throw Error('Respuesta no válida');
+    }
+
+    datosMySQL = datos;
+
+    $('dbEstado').textContent =
+      'MySQL: consulta completada · '+
+      new Date().toLocaleTimeString();
+
+    $('dbEstado').className =
+      'db-status good';
+
+    $('dbTotal').textContent =
+      datos.length;
+
+    if(datos.length>0) {
+
+      const ultimo = datos[0];
+
+      $('dbError').textContent =
+        ultimo.errorPid;
+
+      $('dbFecha').textContent =
+        ultimo.fechaHora;
+
+    } else {
+
+      $('dbError').textContent = '—';
+      $('dbFecha').textContent = '—';
+    }
+
+    pintarTablaMySQL();
+    pintarGraficaMySQL();
+
+  } catch(e) {
+
+    $('dbEstado').textContent =
+      'No se pudo consultar MySQL: '+
+      e.message;
+
+    $('dbEstado').className =
+      'db-status bad';
+  }
+}
+
+// ==========================================
+// MOSTRAR TABLA MYSQL
+// ==========================================
+
+function pintarTablaMySQL() {
+
+  const tbody = $('tablaHistorial');
+
+  tbody.replaceChildren();
+
+  if(datosMySQL.length===0) {
+
+    const fila =
+      document.createElement('tr');
+
+    const celda =
+      document.createElement('td');
+
+    celda.colSpan = 7;
+    celda.className = 'empty';
+
+    celda.textContent =
+      'No hay registros almacenados.';
+
+    fila.appendChild(celda);
+    tbody.appendChild(fila);
+
+    return;
+  }
+
+  for(const registro of datosMySQL) {
+
+    const fila =
+      document.createElement('tr');
+
+    const valores = [
+      registro.id,
+      registro.fechaHora,
+      registro.activo?'Sí':'No',
+      registro.errorPid,
+      registro.anguloRadar+'°',
+      registro.distanciaCm>0
+        ? registro.distanciaCm+' cm'
+        : 'Sin eco',
+      registro.estadoRobot
+    ];
+
+    for(const valor of valores) {
+
+      const celda =
+        document.createElement('td');
+
+      celda.textContent = valor;
+
+      fila.appendChild(celda);
+    }
+
+    tbody.appendChild(fila);
+  }
+}
+
+// ==========================================
+// GRAFICA HISTORICA MYSQL
+// ==========================================
+
+function pintarGraficaMySQL() {
+
+  const [w,h] = resize(dbChart);
+
+  dx.clearRect(0,0,w,h);
+
+  const left = 38;
+  const right = 15;
+  const top = 18;
+  const bottom = 32;
+
+  const areaW = w-left-right;
+  const areaH = h-top-bottom;
+
+  // Rejilla.
+  dx.strokeStyle = '#2a4a5c';
+  dx.lineWidth = 1;
+
+  dx.font = '12px system-ui';
+  dx.fillStyle = '#a5c6d1';
+  dx.textAlign = 'left';
+
+  for(let i=0;i<=4;i++) {
+
+    const valor = 2-i;
+
+    const y =
+      top+areaH*i/4;
+
+    dx.beginPath();
+    dx.moveTo(left,y);
+    dx.lineTo(w-right,y);
+    dx.stroke();
+
+    dx.fillText(
+      String(valor),
+      10,
+      y+4
+    );
+  }
+
+  if(datosMySQL.length===0) return;
+
+  // MySQL devuelve los registros más
+  // recientes primero. Para la gráfica
+  // los ordenamos cronológicamente.
+  const puntos =
+    [...datosMySQL].reverse();
+
+  dx.strokeStyle = '#6df4a1';
+  dx.lineWidth = 2.5;
+
+  dx.beginPath();
+
+  puntos.forEach((registro,i) => {
+
+    const valor = Math.max(
+      -2,
+      Math.min(
+        2,
+        Number(registro.errorPid)||0
+      )
+    );
+
+    const x =
+      left+i*areaW/
+      Math.max(1,puntos.length-1);
+
+    const y =
+      top+(2-valor)*areaH/4;
+
+    if(i===0) {
+      dx.moveTo(x,y);
+    } else {
+      dx.lineTo(x,y);
+    }
+  });
+
+  dx.stroke();
+
+  // Marcar última lectura.
+  const ultimo = puntos[puntos.length-1];
+
+  const valorFinal = Math.max(
+    -2,
+    Math.min(
+      2,
+      Number(ultimo.errorPid)||0
+    )
+  );
+
+  const xFinal =
+    left+(puntos.length-1)*areaW/
+    Math.max(1,puntos.length-1);
+
+  const yFinal =
+    top+(2-valorFinal)*areaH/4;
+
+  dx.beginPath();
+  dx.arc(xFinal,yFinal,4,0,Math.PI*2);
+
+  dx.fillStyle = '#baffd1';
+  dx.fill();
+
+  // Etiquetas de tiempo.
+  dx.fillStyle = '#a5c6d1';
+  dx.font = '11px system-ui';
+
+  dx.textAlign = 'left';
+
+  dx.fillText(
+    String(puntos[0].fechaHora).slice(11,19),
+    left,
+    h-9
+  );
+
+  dx.textAlign = 'right';
+
+  dx.fillText(
+    String(ultimo.fechaHora).slice(11,19),
+    w-right,
+    h-9
+  );
+}
+
+// ==========================================
+// EXPORTAR CSV
+// ==========================================
+
+function exportarCSV() {
+
+  if(datosMySQL.length===0) {
+
+    $('dbEstado').textContent =
+      'No hay registros para exportar.';
+
+    return;
+  }
+
+  const encabezado = [
+    'ID',
+    'Fecha y hora',
+    'Activo',
+    'Error PID',
+    'Angulo radar',
+    'Distancia cm',
+    'Estado robot'
+  ];
+
+  const filas = datosMySQL.map(r => [
+    r.id,
+    r.fechaHora,
+    r.activo?1:0,
+    r.errorPid,
+    r.anguloRadar,
+    r.distanciaCm,
+    r.estadoRobot
+  ]);
+
+  const escapar = valor => {
+    const texto = String(valor??'');
+
+    return '"' +
+      texto.replace(/"/g,'""') +
+      '"';
+  };
+
+  const contenido = [
+    encabezado,
+    ...filas
+  ].map(
+    fila => fila.map(escapar).join(',')
+  ).join('\r\n');
+
+  const blob = new Blob(
+    ['\uFEFF'+contenido],
+    {
+      type:'text/csv;charset=utf-8'
+    }
+  );
+
+  const url =
+    URL.createObjectURL(blob);
+
+  const enlace =
+    document.createElement('a');
+
+  enlace.href = url;
+
+  enlace.download =
+    'telemetria_robot_pid_'+
+    new Date().toISOString().slice(0,10)+
+    '.csv';
+
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+
+  setTimeout(
+    ()=>URL.revokeObjectURL(url),
+    1000
+  );
+}
+
+// ==========================================
+// ACTUALIZACIONES AUTOMATICAS
+// ==========================================
+
+// Monitoreo en tiempo real.
+setInterval(actualizar,250);
+
+// Animación del radar y gráfica PID.
+setInterval(()=>{
+  pintarRadar();
+  pintarGrafica();
+},100);
+
+// Consulta histórica cada 3 segundos.
+setInterval(actualizarHistorial,3000);
+
+// Redibujar la gráfica al cambiar tamaño.
+window.addEventListener('resize',()=>{
+  pintarGraficaMySQL();
+});
+
+// Primera carga.
+actualizar();
+actualizarHistorial();
+
+</script>
+
+</body>
+</html>
